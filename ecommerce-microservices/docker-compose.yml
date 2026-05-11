@@ -1,0 +1,307 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - ecommerce-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    networks:
+      - ecommerce-network
+
+  # MySQL Databases
+  mysql-user:
+    image: mysql:8.0
+    container_name: mysql-user
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: user_service
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-user-data:/var/lib/mysql
+      - ./scripts/init-user-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  mysql-product:
+    image: mysql:8.0
+    container_name: mysql-product
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: product_service
+      MYSQL_USER: product
+      MYSQL_PASSWORD: password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-product-data:/var/lib/mysql
+      - ./scripts/init-product-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  mysql-order:
+    image: mysql:8.0
+    container_name: mysql-order
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: order_service
+      MYSQL_USER: order
+      MYSQL_PASSWORD: password
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql-order-data:/var/lib/mysql
+      - ./scripts/init-order-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  mysql-payment:
+    image: mysql:8.0
+    container_name: mysql-payment
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: payment_service
+      MYSQL_USER: payment
+      MYSQL_PASSWORD: password
+    ports:
+      - "3309:3306"
+    volumes:
+      - mysql-payment-data:/var/lib/mysql
+      - ./scripts/init-payment-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  mysql-cart:
+    image: mysql:8.0
+    container_name: mysql-cart
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: cart_service
+      MYSQL_USER: cart
+      MYSQL_PASSWORD: password
+    ports:
+      - "3310:3306"
+    volumes:
+      - mysql-cart-data:/var/lib/mysql
+      - ./scripts/init-cart-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  mysql-inventory:
+    image: mysql:8.0
+    container_name: mysql-inventory
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: inventory_service
+      MYSQL_USER: inventory
+      MYSQL_PASSWORD: password
+    ports:
+      - "3311:3306"
+    volumes:
+      - mysql-inventory-data:/var/lib/mysql
+      - ./scripts/init-inventory-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  mysql-notification:
+    image: mysql:8.0
+    container_name: mysql-notification
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: notification_service
+      MYSQL_USER: notification
+      MYSQL_PASSWORD: password
+    ports:
+      - "3312:3306"
+    volumes:
+      - mysql-notification-data:/var/lib/mysql
+      - ./scripts/init-notification-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  mysql-review:
+    image: mysql:8.0
+    container_name: mysql-review
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: review_service
+      MYSQL_USER: review
+      MYSQL_PASSWORD: password
+    ports:
+      - "3313:3306"
+    volumes:
+      - mysql-review-data:/var/lib/mysql
+      - ./scripts/init-review-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  mysql-analytics:
+    image: mysql:8.0
+    container_name: mysql-analytics
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: analytics_service
+      MYSQL_USER: analytics
+      MYSQL_PASSWORD: password
+    ports:
+      - "3314:3306"
+    volumes:
+      - mysql-analytics-data:/var/lib/mysql
+      - ./scripts/init-analytics-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ecommerce-network
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ecommerce-network
+
+  # Infrastructure Services
+  eureka-server:
+    build: ./infrastructure/eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka
+    depends_on:
+      - redis
+    networks:
+      - ecommerce-network
+
+  config-server:
+    build: ./infrastructure/config-server
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    environment:
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka
+    depends_on:
+      - eureka-server
+    networks:
+      - ecommerce-network
+
+  api-gateway:
+    build: ./infrastructure/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+    depends_on:
+      - eureka-server
+      - config-server
+    networks:
+      - ecommerce-network
+
+  # Microservices
+  user-service:
+    build: ./microservices/user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-user:3306/user_service?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      - mysql-user
+      - eureka-server
+      - config-server
+      - kafka
+      - redis
+    networks:
+      - ecommerce-network
+
+  product-service:
+    build: ./microservices/product-service
+    container_name: product-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-product:3306/product_service?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      - mysql-product
+      - eureka-server
+      - config-server
+      - kafka
+      - redis
+    networks:
+      - ecommerce-network
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_GATEWAY_URL: http://localhost:8080
+      REACT_APP_WS_URL: ws://localhost:8087
+    depends_on:
+      - api-gateway
+    networks:
+      - ecommerce-network
+
+volumes:
+  mysql-user-data:
+  mysql-product-data:
+  mysql-order-data:
+  mysql-payment-data:
+  mysql-cart-data:
+  mysql-inventory-data:
+  mysql-notification-data:
+  mysql-review-data:
+  mysql-analytics-data:
+  redis-data:
+
+networks:
+  ecommerce-network:
+    driver: bridge
